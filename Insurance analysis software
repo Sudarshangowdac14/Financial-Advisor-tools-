@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance & Financial Gap Analysis</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-grad: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --bg-color: #f4f7fc;
+            --text-color: #34495e;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-dark: #2d3748;
+            --text-light: #718096;
+            --danger-color: #e53e3e;
+            --positive-color: #27ae60;
+            --negative-color: #c0392b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); }
+        .hidden { display: none !important; }
+
+        #login-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: var(--primary-grad); text-align: center; padding: 20px; }
+        .login-box { background: var(--card-bg); padding: 3rem; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
+        .login-box h1 { font-size: 2.5rem; color: var(--text-color); margin-bottom: 0.5rem; }
+        .login-box p { color: #7f8c8d; margin-bottom: 2rem; }
+        .login-box input { width: 350px; padding: 14px; border: 2px solid var(--border-color); border-radius: 10px; font-size: 1rem; margin-bottom: 1rem; }
+        .btn { background: var(--primary-grad); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .btn-secondary { background: #bdc3c7; } .btn-success { background: var(--secondary-grad); }
+        .btn-danger { background: var(--danger-color); }
+
+        #app-container { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
+        .sidebar { background: var(--card-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px; }
+        .sidebar-header { text-align: center; margin-bottom: 20px; }
+        .sidebar-header h2 { font-size: 1.5rem; }
+        .sidebar-nav { margin: 20px 0; }
+        .nav-btn { display: block; width: 100%; text-align: left; background: none; border: none; padding: 15px; font-size: 1rem; border-radius: 10px; cursor: pointer; margin-bottom: 10px; }
+        .nav-btn.active, .nav-btn:hover { background: #e9ecef; color: var(--text-color); }
+        .sidebar-footer { margin-top: auto; } .sidebar-footer button { width: 100%; margin-top: 10px;}
+
+        /* New Notepad Styles */
+        .sidebar-notepad {
+            margin: 15px 0;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 150px; /* Ensure it has some height */
+        }
+        .sidebar-notepad h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+        .sidebar-notepad textarea {
+            width: 100%;
+            flex-grow: 1;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        .main-content { padding: 30px; overflow-y: auto; background-color: var(--bg-color); }
+        .page-header { margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; } .page-header h1 { font-size: 2.2rem; }
+        .page-header .header-actions { display: flex; gap: 10px; }
+        
+        .policy-dashboard { display: grid; grid-template-columns: 350px 1fr; gap: 20px; height: calc(100vh - 120px); }
+        .policy-list-pane { background: var(--card-bg); padding: 15px; border-radius: 15px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .policy-list-pane h3 { margin-bottom: 15px; }
+        #policy-list-container { margin-top: 20px; flex-grow: 1; overflow-y: auto; }
+        .policy-list-item { padding: 12px; margin-bottom: 8px; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .policy-list-item.active, .policy-list-item:hover { background: #e6f3ff; color: #4299e1; border-color: #4299e1; }
+        #policy-detail-pane { overflow-y: auto; padding-right: 10px; }
+        .workspace-placeholder { display: flex; flex-direction:column; justify-content: center; align-items: center; height: 100%; color: var(--text-light); text-align: center; border: 2px dashed var(--border-color); border-radius: 15px;}
+        
+        .content { display: grid; grid-template-columns: 1fr 2fr; gap: 30px; padding: 0; }
+        .input-section { background: #f8f9fc; padding: 25px; border-radius: 15px; border: 2px solid var(--border-color); max-height: calc(100vh - 180px); overflow-y: auto; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-dark); font-size: 14px; }
+        .input-group input, .input-group select, .input-group textarea { width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; }
+        .input-group textarea { font-family: monospace; }
+        .formula-vars { font-size: 12px; color: var(--text-light); margin-top: 5px;}
+        .method-container { display: none; padding: 15px; margin-top: 5px; background: #fff; border-radius: 8px; border: 1px solid var(--border-color); }
+        .section-title { background: var(--primary-grad); color: white; padding: 10px 15px; border-radius: 8px; margin: 20px 0 15px 0; font-size: 16px; font-weight: 600; }
+        .btn-analyzer { background: var(--primary-grad); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 20px; }
+        .payout-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .payout-row input { flex: 1; }
+        .payout-row button { padding: 0 12px; border: none; background-color: #fde2e2; color: #c53030; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .result-card { background: white; padding: 20px; border-radius: 15px; border: 1px solid var(--border-color); text-align: center; }
+        .result-value { font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; }
+        .result-label { color: #7f8c8d; font-size: 0.85rem; }
+        .suggestion { background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 20px; border-radius: 15px; margin: 20px 0; text-align: center; font-size: 1.1rem; }
+        .charts-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .chart-wrapper { background: white; padding: 20px; border-radius: 15px; border: 1px solid var(--border-color); }
+        .table-container { margin-top: 20px; background: white; border-radius: 15px; overflow-x: auto; border: 1px solid var(--border-color); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-color); white-space: nowrap;}
+        th { background: #f8f9fc; font-weight:600; text-align:left; }
+        td:not(:first-child), th:not(:first-child) { text-align: right; }
+        .negative { color: var(--negative-color); } 
+        .positive { color: var(--positive-color); }
+        .financials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        .financial-card { background: var(--card-bg); padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .financial-card h3 { margin-bottom: 15px; }
+        .financial-item { display: flex; justify-content: space-between; align-items:center; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+        .analysis-card { background: var(--card-bg); padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .gap-summary { font-size: 1.5rem; font-weight: bold; margin: 15px 0; padding: 15px; border-radius: 10px; text-align: center; }
+        .gap-summary.positive { color: var(--positive-color); background-color: #e9f7ef; } .gap-summary.negative { color: var(--negative-color); background-color: #fde2e2; }
+        .recommendation { margin-top: 15px; background: #e9f7ef; padding: 15px; border-left: 4px solid var(--positive-color); border-radius: 5px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; }
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .analysis-total { font-weight: bold; border-top: 2px solid var(--text-dark); padding-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h1>Financial & Insurance Planner</h1>
+            <p>Your personal dashboard to manage policies and plan your financial future.</p>
+            <input type="text" id="policyHolderName" placeholder="Enter Your Name">
+            <button class="btn" onclick="app.login()">Load or Create Profile</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden">
+        <aside class="sidebar">
+            <div class="sidebar-header"> <h2>Welcome, <span id="account-name"></span></h2> </div>
+            <nav class="sidebar-nav">
+                <button id="nav-policies" class="nav-btn active" onclick="ui.navigateTo('policies')">Insurance Analyzer</button>
+                <button id="nav-financials" class="nav-btn" onclick="ui.navigateTo('financials')">Insurance calculator</button>
+                <button id="nav-analysis" class="nav-btn" onclick="ui.navigateTo('analysis')">Gap Analysis</button>
+            </nav>
+            
+            <div class="sidebar-notepad">
+                <h3>My Notes 📝</h3>
+                <textarea id="user-notes" placeholder="Jot down thoughts, questions for your advisor, or action items..."></textarea>
+            </div>
+
+            <div class="sidebar-footer"> 
+                <button class="btn btn-secondary" onclick="app.logout()">Switch Profile</button>
+                <button class="btn btn-danger" onclick="app.resetCurrentUserData()">Reset Profile Data</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="page-policies" class="page">
+                <div class="page-header"> <h1>Your Insurance Portfolio</h1> </div>
+                <div class="policy-dashboard">
+                    <div class="policy-list-pane">
+                        <h3>Your Policies</h3>
+                        <select id="add-policy-type" style="width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <option value="JeevanAnand">Jeevan Anand (Traditional)</option>
+                            <option value="Endowment">Endowment / Traditional</option>
+                            <option value="Pension">Pension Plan</option>
+                            <option value="MoneyBack">Money Back Plan</option>
+                        </select>
+                        <button class="btn" onclick="app.addNewPolicy()" style="width: 100%;">+ Add New Policy</button>
+                        <div id="policy-list-container"></div>
+                    </div>
+                    <div id="policy-detail-pane">
+                        <div class="workspace-placeholder">
+                            <h2>Select a policy to view details or add a new one to get started.</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="page-financials" class="page hidden">
+                <div class="page-header"><h1>Your Financial Status</h1><div class="header-actions"><button class="btn btn-success" onclick="app.saveFinancials()">Save Financials</button></div></div>
+                <div class="financials-grid">
+                    <div class="financial-card"><h3>Assets</h3><div id="asset-list"></div><button class="btn" onclick="app.showFinancialItemModal('asset')">+ Add Asset</button></div>
+                    <div class="financial-card"><h3>Liabilities (Loans)</h3><div id="liability-list"></div><button class="btn" onclick="app.showFinancialItemModal('liability')">+ Add Liability</button></div>
+                    <div class="financial-card"><h3>Financial Goals</h3><div id="goal-list"></div><button class="btn" onclick="app.showFinancialItemModal('goal')">+ Add Goal</button></div>
+                    <div class="financial-card">
+                        <h3>Lifestyle Expense Planning</h3>
+                        <div class="input-group"><label>Pre-Retirement Monthly Expenses (₹)</label><input type="number" id="lifestyle-preRetExp"></div>
+                        <div class="input-group"><label>Years to Support Pre-Retirement</label><input type="number" id="lifestyle-preRetYears"></div>
+                        <div class="input-group"><label>Post-Retirement Monthly Expenses (₹)</label><input type="number" id="lifestyle-postRetExp"></div>
+                        <div class="input-group"><label>Years to Support Post-Retirement</label><input type="number" id="lifestyle-postRetYears"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="page-analysis" class="page hidden">
+                <div class="page-header">
+                    <h1>Gap Analysis & Recommendations</h1>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="app.downloadReport()">Download Report</button>
+                        <button class="btn btn-success" onclick="app.runAnalysis()">Run Fresh Analysis</button>
+                    </div>
+                </div>
+                <div id="analysis-results">
+                    <div class="workspace-placeholder"><h2>Click "Run Fresh Analysis" to see your report.</h2><p style="margin-top:10px;">Ensure you have added your assets, liabilities, goals, and lifestyle expenses on the Financial Planning page first.</p></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="modal-overlay hidden">
+        <div class="modal-content"><h2 id="modal-title"></h2><div id="modal-body"></div>
+            <div class="modal-actions" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-secondary" onclick="ui.hideModal()">Cancel</button>
+                <button class="btn" id="modal-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const FINANCIAL_ITEM_CONFIG = {
+        asset: [ 
+            { name: 'name', label: 'Asset Name', type: 'text' }, 
+            { name: 'value', label: 'Current Value (₹)', type: 'number' },
+            { name: 'adjustment', label: 'Adjustment / Liquidity %', type: 'number', placeholder: 'e.g., 70 for Equity, 100 for Liquid' }
+        ],
+        liability: [ 
+            { name: 'name', label: 'Liability Name', type: 'text' }, 
+            { name: 'value', label: 'Outstanding Amount (₹)', type: 'number' } 
+        ],
+        goal: [ 
+            { name: 'name', label: 'Goal Name', type: 'text' }, 
+            { name: 'value', label: 'Target Amount (in today\'s value, ₹)', type: 'number' }, 
+            { name: 'year', label: 'Target Year', type: 'number' }
+        ]
+    };
+    const getFinancialsKey = (type) => (type === 'liability' ? 'liabilities' : type + 's');
+
+    const state = { currentUser: null, currentPage: 'policies', allData: {}, activePolicyId: null };
+    const db = {
+        load: () => { state.allData = JSON.parse(localStorage.getItem('financialPlannerData') || '{}'); },
+        save: () => { localStorage.setItem('financialPlannerData', JSON.stringify(state.allData)); },
+        getUserData: () => {
+            if (!state.allData[state.currentUser]) {
+                state.allData[state.currentUser] = { policies: [], financials: { assets: [], liabilities: [], goals: [], lifestyle: {} }, notes: "" };
+            }
+            const data = state.allData[state.currentUser];
+            if (!data.financials) data.financials = { assets: [], liabilities: [], goals: [], lifestyle: {} };
+            if (!data.policies) data.policies = [];
+            if (!data.financials.lifestyle) data.financials.lifestyle = {};
+            if (data.notes === undefined) data.notes = "";
+            return data;
+        }
+    };
+
+    const ui = {
+        navigateTo: (page) => {
+            state.currentPage = page;
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${page}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${page}`).classList.add('active');
+        },
+        renderFinancials: () => {
+            const { financials } = db.getUserData();
+            const lists = { asset: document.getElementById('asset-list'), liability: document.getElementById('liability-list'), goal: document.getElementById('goal-list') };
+            Object.keys(lists).forEach(type => {
+                lists[type].innerHTML = '';
+                const key = getFinancialsKey(type);
+                if (financials[key] && financials[key].length > 0) {
+                    financials[key].forEach((item, index) => {
+                        const element = document.createElement('div');
+                        element.className = 'financial-item';
+                        const adjustmentText = type === 'asset' ? ` (${item.adjustment || 100}%)` : '';
+                        element.innerHTML = `<span>${item.name} (${policyAnalyzer.formatCurrency(item.value || 0)})${adjustmentText}</span><button onclick="app.deleteFinancialItem('${type}', ${index})" style="background:none; border:none; color:red; cursor:pointer;">✖</button>`;
+                        lists[type].appendChild(element);
+                    });
+                } else {
+                    lists[type].innerHTML = `<p style="font-size:14px; color: var(--text-light);">No ${type}s added yet.</p>`;
+                }
+            });
+            const lifestyle = financials.lifestyle || {};
+            document.getElementById('lifestyle-preRetExp').value = lifestyle.preRetExp || '';
+            document.getElementById('lifestyle-preRetYears').value = lifestyle.preRetYears || '';
+            document.getElementById('lifestyle-postRetExp').value = lifestyle.postRetExp || '';
+            document.getElementById('lifestyle-postRetYears').value = lifestyle.postRetYears || '';
+        },
+        renderPoliciesList: () => {
+            const userData = db.getUserData();
+            const container = document.getElementById('policy-list-container');
+            container.innerHTML = userData.policies.length === 0 ? '<p style="padding: 10px; text-align:center; color: var(--text-light);">No policies added yet.</p>' : '';
+            userData.policies.forEach(policy => {
+                const item = document.createElement('div');
+                item.className = 'policy-list-item';
+                item.dataset.policyId = policy.id;
+                if (policy.id === state.activePolicyId) item.classList.add('active');
+                item.innerHTML = `<span>${policy.policyName || 'New Policy'} (${policy.type})</span><button onclick="event.stopPropagation(); app.deletePolicy('${policy.id}')" style="background:none; border:none; color:red; cursor:pointer;">✖</button>`;
+                item.onclick = () => app.selectPolicy(policy.id);
+                container.appendChild(item);
+            });
+        },
+        renderPolicyWorkspace: (policy) => {
+            const container = document.getElementById('policy-detail-pane');
+            if (!policy) {
+                container.innerHTML = `<div class="workspace-placeholder"><h2>Select a policy to view details or add a new one to get started.</h2></div>`;
+                return;
+            }
+            const prefix = policy.type.toLowerCase();
+            container.innerHTML = policyAnalyzer.getFormTemplate(prefix);
+            Object.keys(policy).forEach(key => {
+                const element = document.getElementById(`${prefix}-${key}`);
+                if (element) element.value = policy[key];
+            });
+            if (prefix === 'moneyback' && policy.payouts) {
+                const payoutsContainer = document.getElementById('moneyback-payouts-container');
+                payoutsContainer.innerHTML = '';
+                policy.payouts.forEach(p => policyAnalyzer.addPayoutRow(p.amount, p.year));
+            }
+            policyAnalyzer.initDefaults(prefix);
+        },
+        showModal: (title, fields, onSave) => {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = fields.map(field => `<div class="input-group"><label for="modal-form-${field.name}">${field.label}</label><input type="${field.type}" id="modal-form-${field.name}" placeholder="${field.placeholder || field.label}"></div>`).join('');
+            document.getElementById('modal-save-btn').onclick = onSave;
+            document.getElementById('modal').classList.remove('hidden');
+        },
+        hideModal: () => document.getElementById('modal').classList.add('hidden'),
+    };
+
+    const app = {
+        init: () => {
+            db.load();
+            const lastUser = localStorage.getItem('lastFinancialUser');
+            if (lastUser) document.getElementById('policyHolderName').value = lastUser;
+        },
+        login: () => {
+            const user = document.getElementById('policyHolderName').value.trim();
+            if (!user) return alert('Please enter your name.');
+            state.currentUser = user;
+            localStorage.setItem('lastFinancialUser', user);
+            document.getElementById('account-name').textContent = user;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            
+            const userData = db.getUserData();
+            document.getElementById('user-notes').value = userData.notes || '';
+            document.getElementById('user-notes').addEventListener('input', app.saveNotes);
+            
+            ui.navigateTo('policies');
+            ui.renderPoliciesList();
+            ui.renderFinancials();
+        },
+        logout: () => {
+            state.currentUser = null;
+            state.activePolicyId = null;
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+            ui.renderPolicyWorkspace(null);
+        },
+        addNewPolicy: () => {
+            const policyType = document.getElementById('add-policy-type').value;
+            const newPolicy = {
+                id: Date.now().toString(), type: policyType, policyName: `New ${policyType} Policy`,
+                sumAssured: "", annualPremium: "", totalYears: "", premiumsPaid: "0", vestedBonus: "", maturityValueInput: "", premiumPayingTerm: "", premiumYears: "", annualPayout: "", payoutYears: "", accruedBonuses: "0", svFactor: "35", paidUpMethod: 'standard', surrenderMethod: 'standard',
+            };
+            if (policyType === 'MoneyBack') { newPolicy.payouts = []; }
+            db.getUserData().policies.push(newPolicy);
+            app.selectPolicy(newPolicy.id);
+            db.save();
+        },
+        selectPolicy: (policyId) => {
+            state.activePolicyId = policyId;
+            const policy = db.getUserData().policies.find(p => p.id === policyId);
+            ui.renderPoliciesList();
+            ui.renderPolicyWorkspace(policy);
+        },
+        deletePolicy: (policyId) => {
+            if (!confirm('Are you sure you want to delete this policy?')) return;
+            const userData = db.getUserData();
+            userData.policies = userData.policies.filter(p => p.id !== policyId);
+            if (state.activePolicyId === policyId) {
+                state.activePolicyId = null;
+                ui.renderPolicyWorkspace(null);
+            }
+            db.save();
+            ui.renderPoliciesList();
+        },
+        resetCurrentUserData: () => {
+            if (!state.currentUser) return;
+            if (!confirm('Are you sure you want to delete ALL policies and financial data for this profile? This action cannot be undone.')) return;
+            
+            const userData = db.getUserData();
+            userData.policies = [];
+            userData.financials = { assets: [], liabilities: [], goals: [], lifestyle: {} };
+            userData.notes = "";
+            state.activePolicyId = null;
+            
+            db.save();
+            
+            ui.renderPoliciesList();
+            ui.renderFinancials();
+            ui.renderPolicyWorkspace(null); 
+            document.getElementById('user-notes').value = '';
+            const analysisResults = document.getElementById('analysis-results');
+            if(analysisResults) analysisResults.innerHTML = '<div class="workspace-placeholder"><h2>Click "Run Fresh Analysis" to see your report.</h2></div>';
+            alert('Profile data for ' + state.currentUser + ' has been reset.');
+        },
+        saveNotes: () => {
+            const notesContent = document.getElementById('user-notes').value;
+            db.getUserData().notes = notesContent;
+            db.save();
+        },
+        saveAndAnalyzePolicy: () => {
+            if (!state.activePolicyId) return;
+            const userData = db.getUserData();
+            const policy = userData.policies.find(p => p.id === state.activePolicyId);
+            const prefix = policy.type.toLowerCase();
+            
+            const inputs = document.querySelectorAll(`#policy-detail-pane [id^="${prefix}-"]`);
+            inputs.forEach(input => {
+                const key = input.id.replace(`${prefix}-`, '');
+                policy[key] = input.value;
+            });
+             if (prefix === 'moneyback') {
+                policy.payouts = [];
+                document.querySelectorAll('#moneyback-payouts-container .payout-row').forEach(row => {
+                    policy.payouts.push({ amount: row.children[0].value, year: row.children[1].value });
+                });
+            }
+            
+            const results = policyAnalyzer.getAnalysisResults(policy);
+            if (results) {
+                policyAnalyzer.processAndDisplayResults(prefix, results);
+                db.save();
+                ui.renderPoliciesList();
+            } else {
+                alert("Could not analyze policy. Please check if all required numeric fields (like premium, term) are filled in correctly.");
+            }
+        },
+        showFinancialItemModal: (type) => { ui.showModal(`Add New ${type}`, FINANCIAL_ITEM_CONFIG[type], () => app.saveFinancialItem(type)); },
+        saveFinancialItem: (type) => {
+            const newItem = {};
+            FINANCIAL_ITEM_CONFIG[type].forEach(f => { newItem[f.name] = document.getElementById(`modal-form-${f.name}`).value; });
+            db.getUserData().financials[getFinancialsKey(type)].push(newItem);
+            db.save();
+            ui.renderFinancials();
+            ui.hideModal();
+        },
+        deleteFinancialItem: (type, index) => {
+            db.getUserData().financials[getFinancialsKey(type)].splice(index, 1);
+            db.save();
+            ui.renderFinancials();
+        },
+        saveFinancials: () => {
+            const lifestyle = {
+                preRetExp: document.getElementById('lifestyle-preRetExp').value,
+                preRetYears: document.getElementById('lifestyle-preRetYears').value,
+                postRetExp: document.getElementById('lifestyle-postRetExp').value,
+                postRetYears: document.getElementById('lifestyle-postRetYears').value
+            };
+            db.getUserData().financials.lifestyle = lifestyle;
+            db.save();
+            alert('Financial details saved successfully!');
+        },
+        getAnalysisData: () => {
+            const { policies, financials } = db.getUserData();
+            const lifestyle = financials.lifestyle || {};
+            const f = (val) => parseFloat(val) || 0;
+
+            const totalLiabilities = financials.liabilities.reduce((s, i) => s + f(i.value), 0);
+            const totalGoals = financials.goals.reduce((s, i) => s + f(i.value), 0);
+            
+            const preRetSupport = f(lifestyle.preRetExp) * 12 * f(lifestyle.preRetYears);
+            const postRetSupport = f(lifestyle.postRetExp) * 12 * f(lifestyle.postRetYears);
+            const totalLifestyleSupport = preRetSupport + postRetSupport;
+            
+            const totalRequirement = totalLiabilities + totalGoals + totalLifestyleSupport;
+            const existingPolicyCover = policies.reduce((s, p) => s + f(p.sumAssured), 0);
+            
+            const liquidAssets = financials.assets.map(asset => {
+                const adjPercent = f(asset.adjustment) || 100;
+                const adjustedValue = f(asset.value) * (adjPercent / 100);
+                return { ...asset, adjustedValue };
+            });
+
+            const totalLiquidAssets = liquidAssets.reduce((s, asset) => s + asset.adjustedValue, 0);
+            const totalExistingCoverage = existingPolicyCover + totalLiquidAssets;
+            const gap = totalRequirement - totalExistingCoverage;
+
+            return {
+                policies, financials, lifestyle, totalLiabilities, totalGoals, preRetSupport, postRetSupport,
+                totalLifestyleSupport, totalRequirement, existingPolicyCover, liquidAssets, totalLiquidAssets,
+                totalExistingCoverage, gap
+            };
+        },
+        runAnalysis: () => {
+            const data = app.getAnalysisData();
+            const format = (val) => policyAnalyzer.formatCurrency(val);
+            const f = (val) => parseFloat(val) || 0;
+
+            let liquidAssetsHTML = '';
+            data.liquidAssets.forEach(asset => {
+                liquidAssetsHTML += `<tr><td>${asset.name}</td><td>${format(f(asset.value))}</td><td>${f(asset.adjustment) || 100}%</td><td>${format(asset.adjustedValue)}</td></tr>`;
+            });
+
+            const resultsContainer = document.getElementById('analysis-results');
+            resultsContainer.innerHTML = `
+                <div class="analysis-grid">
+                    <div class="analysis-card">
+                        <h3>Total Life Insurance Requirement</h3>
+                        <div class="financial-item"><span>A. Liabilities (Loans)</span><span>${format(data.totalLiabilities)}</span></div>
+                        <div class="financial-item"><span>B. Major Goals</span><span>${format(data.totalGoals)}</span></div>
+                        <div class="financial-item"><span>C. Lifestyle Support</span><span>${format(data.totalLifestyleSupport)}</span></div>
+                        <div class="financial-item analysis-total"><span>Total Needed (A+B+C)</span><span>${format(data.totalRequirement)}</span></div>
+                    </div>
+                    <div class="analysis-card">
+                        <h3>Total Existing Coverage</h3>
+                        <div class="financial-item"><span>Existing Insurance Cover</span><span>${format(data.existingPolicyCover)}</span></div>
+                        <div class="financial-item"><span>Liquid Assets (Adjusted)</span><span>${format(data.totalLiquidAssets)}</span></div>
+                        <div class="financial-item analysis-total"><span>Total Available</span><span>${format(data.totalExistingCoverage)}</span></div>
+                    </div>
+                </div>
+                
+                <div class="analysis-card">
+                    <h2>Final Gap Analysis</h2>
+                    <p class="gap-summary ${data.gap > 0 ? 'negative' : 'positive'}">
+                        Fresh Insurance Required: <strong>${format(Math.abs(data.gap))}</strong> ${data.gap > 0 ? '(Shortfall)' : '(Surplus)'}
+                    </p>
+                    <div class="recommendation" style="border-color:${data.gap > 0 ? 'var(--negative-color)' : 'var(--positive-color)'}; background-color:${data.gap > 0 ? '#fde2e2' : '#e9f7ef'};">
+                        ${data.gap > 0 ? `It's recommended to get an additional Term Plan for at least <strong>${format(data.gap)}</strong> to secure your family's future.` : 'Congratulations! Your life cover appears to be adequate for your declared liabilities and goals.'}
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>Liquid Assets Breakdown</h3>
+                    <div class="table-container" style="margin-top:0;">
+                        <table>
+                            <thead><tr><th>Asset Name</th><th>Current Value</th><th>Adjustment %</th><th>Adjusted Value</th></tr></thead>
+                            <tbody>${liquidAssetsHTML || '<tr><td colspan="4" style="text-align:center;">No assets added.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        },
+        downloadReport: () => {
+            const data = app.getAnalysisData();
+            const f = (val) => parseFloat(val) || 0;
+            const wb = XLSX.utils.book_new();
+
+            // --- Sheet 1: Gap Analysis Summary ---
+            const gapAnalysisData = [
+                [{v: "Financial Gap Analysis Report", s: { font: { bold: true, sz: 16}}}],
+                [], 
+                [{v: "1. Loans & Liabilities", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "667EEA" }}} }],
+                [{v: "Item", s: { font: { bold: true }}}, {v: "Outstanding Amount", s: { font: { bold: true }}}],
+                ...data.financials.liabilities.map(item => [item.name, {t:'n', z: '₹#,##0', v: f(item.value)}]),
+                [{v: "Total (A)", s: { font: { bold: true }}}, {t:'n', z: '₹#,##0', v: data.totalLiabilities, s: { font: { bold: true }}}],
+                [],
+                [{v: "2. Major Goals/Important Events", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "667EEA" }}} }],
+                [{v: "Goal", s: { font: { bold: true }}}, {v: "Corpus Required", s: { font: { bold: true }}}],
+                ...data.financials.goals.map(item => [item.name, {t:'n', z: '₹#,##0', v: f(item.value)}]),
+                [{v: "Total (B)", s: { font: { bold: true }}}, {t:'n', z: '₹#,##0', v: data.totalGoals, s: { font: { bold: true }}}],
+                [],
+                [{v: "3. Lifestyle Expenses", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "667EEA" }}} }],
+                [{v: "Description", s: { font: { bold: true }}}, {v: "Value", s: { font: { bold: true }}}],
+                ["Pre-Retirement Monthly Expenses", {t:'n', z: '₹#,##0', v: f(data.lifestyle.preRetExp)}],
+                ["Years to support", f(data.lifestyle.preRetYears)],
+                ["Post-Retirement Monthly Expenses", {t:'n', z: '₹#,##0', v: f(data.lifestyle.postRetExp)}],
+                ["Years to support", f(data.lifestyle.postRetYears)],
+                [{v: "Total (C)", s: { font: { bold: true }}}, {t:'n', z: '₹#,##0', v: data.totalLifestyleSupport, s: { font: { bold: true }}}],
+                [],
+                [{v: "Total Life Insurance needed (A+B+C)", s: { font: { bold: true }}}, {t:'n', z: '₹#,##0', v: data.totalRequirement, s: { font: { bold: true }}}],
+                [],
+                [{v: "Total Existing Coverage", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "4FACFE" }}} }],
+                ["Existing life insurance policies", {t:'n', z: '₹#,##0', v: data.existingPolicyCover}],
+                ["Total Liquidable Assets (D)", {t:'n', z: '₹#,##0', v: data.totalLiquidAssets}],
+                [],
+                [{v: "Fresh insurance required", s: { font: { bold: true, sz: 14, color: { rgb: data.gap > 0 ? "C0392B" : "27AE60"}}}}, {t:'n', z: '₹#,##0', v: data.gap, s: { font: { bold: true, sz: 14, color: { rgb: data.gap > 0 ? "C0392B" : "27AE60"}}}}],
+            ];
+            const wsGap = XLSX.utils.aoa_to_sheet(gapAnalysisData);
+            wsGap['!cols'] = [{ wch: 40 }, { wch: 20 }];
+            XLSX.utils.book_append_sheet(wb, wsGap, "Financial Analysis");
+
+            // --- Subsequent Sheets: Individual Policy Analysis ---
+            data.policies.forEach(policy => {
+                const results = policyAnalyzer.getAnalysisResults(policy);
+                if (!results) return;
+
+                const policySheetData = [
+                    [{v: policy.policyName || `Policy ${policy.id}`, s: { font: { bold: true, sz: 16 } } }],
+                    [{v: `Type: ${policy.type}`, s: { font: { italic: true } } }],
+                    [],
+                    [{v: "Key Metrics", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "667EEA" }}} }],
+                    ["Policy IRR", {t: 'n', v: (results.irr || 0) / 100, z: '0.00"%"'}],
+                    ["Net Benefit / (Loss)", {t: 'n', v: results.netBenefit, z: '₹#,##0'}],
+                    ["Total Premiums Paid", {t: 'n', v: results.totalPremiumsPaid, z: '₹#,##0'}],
+                    ["Total Payout Value", {t: 'n', v: results.totalPayout, z: '₹#,##0'}],
+                    ["Paid-up Value", {t: 'n', v: results.paidUpValue, z: '₹#,##0'}],
+                    ["Surrender Value", {t: 'n', v: results.surrenderValue, z: '₹#,##0'}],
+                    [],
+                    [{v: "Yearly Cashflow Details", s: { font: { bold: true, color: { rgb: "FFFFFF" }}, fill: { fgColor: { rgb: "4FACFE" }}} }],
+                ];
+                
+                const table = policyAnalyzer.getTableData(results.cashflows, results.policyDetails);
+                policySheetData.push(...table);
+
+                const wsPolicy = XLSX.utils.aoa_to_sheet(policySheetData);
+                wsPolicy['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+                const safeSheetName = (policy.policyName || 'Unnamed Policy').replace(/[\*\[\]\:\?\\\/]/g, '').substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, wsPolicy, safeSheetName);
+            });
+
+            XLSX.writeFile(wb, `Financial_Analysis_Report_${state.currentUser.replace(/ /g, '_')}.xlsx`);
+        }
+    };
+
+    const policyAnalyzer = {
+        charts: {},
+        getFormTemplate: (prefix) => {
+            const commonInputs = `<div class="input-group"><label>Policy Name / Number</label><input type="text" id="${prefix}-policyName"></div>`;
+            const commonValueCalcs = `<div class="section-title">Policy Value Calculations</div>
+                <div class="input-group"><label>Paid-up Value Method</label><select id="${prefix}-paidUpMethod" onchange="policyAnalyzer.toggleMethodInputs('${prefix}', 'paidUp')"><option value="standard" selected>Standard Formula</option><option value="custom">Custom Formula</option></select></div>
+                <div id="${prefix}-paidUpCustomContainer" class="method-container"><label>Paid-up Formula</label><textarea id="${prefix}-paidUpFormula"></textarea><div class="formula-vars">Vars: <code>SA</code>, <code>AP</code>, <code>TY/PPT</code>, <code>PP</code></div></div>
+                <div class="input-group"><label>Surrender Value Method</label><select id="${prefix}-surrenderMethod" onchange="policyAnalyzer.toggleMethodInputs('${prefix}', 'surrender')"><option value="standard" selected>Standard Formula</option><option value="custom">Custom Formula</option></select></div>
+                <div id="${prefix}-surrenderStandardContainer" class="method-container"><label>Accrued Bonuses (at Surrender, ₹)</label><input type="number" id="${prefix}-accruedBonuses"><label style="margin-top:10px;">Surrender Value Factor (%)</label><input type="number" id="${prefix}-svFactor"></div>
+                <div id="${prefix}-surrenderCustomContainer" class="method-container"><label>Surrender Formula</label><textarea id="${prefix}-surrenderFormula"></textarea><div class="formula-vars">Vars: <code>PUV</code>, <code>AB</code>, <code>TPP</code>, <code>SVF</code></div></div>`;
+            const resultsHTML = `<div class="results-section" style="display:none;"><div class="results-grid">
+                            <div class="result-card"><div class="result-value" id="${prefix}-totalPremiumsPaid"></div><div class="result-label">Total Premiums Paid</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-premiumsAlreadyPaid"></div><div class="result-label">Premiums Already Paid</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-maturityDisplay"></div><div class="result-label">Total Payout Value</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-netBenefitDisplay"></div><div class="result-label">Net Benefit</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-irrValue"></div><div class="result-label">Policy IRR</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-paidUpValueDisplay"></div><div class="result-label">Paid-up Value</div></div>
+                            <div class="result-card"><div class="result-value" id="${prefix}-surrenderValueDisplay"></div><div class="result-label">Surrender Value</div></div>
+                        </div><div class="suggestion" id="${prefix}-policySuggestion"></div><div class="charts-container"><div class="chart-wrapper"><canvas id="${prefix}-cashflowChart"></canvas></div><div class="chart-wrapper"><canvas id="${prefix}-breakdownChart"></canvas></div></div><div class="table-container"><table id="${prefix}-yearlyDataTable"></table></div></div>`;
+            let specificInputs = '';
+            if (prefix === 'endowment') {
+                specificInputs = `<div class="input-group"><label>Total Maturity Value (at term end, ₹)</label><input type="number" id="endowment-maturityValueInput"></div>
+                                <div class="input-group"><label>Vested Bonus (at Maturity, ₹)</label><input type="number" id="endowment-vestedBonus"></div>
+                                <hr><p style="font-size:12px; margin-bottom:15px;"><i>The fields below are for IRR, cashflow, and surrender calculations.</i></p>
+                                <div class="input-group"><label>Sum Assured (for Gap/Paid-up/Surrender calc, ₹)</label><input type="number" id="endowment-sumAssured"></div>
+                                <div class="input-group"><label>Annual Premium (₹)</label><input type="number" id="endowment-annualPremium"></div>
+                                <div class="input-group"><label>Total Policy Term (Years)</label><input type="number" id="endowment-totalYears"></div>
+                                <div class="input-group"><label>Premiums Already Paid (Years)</label><input type="number" id="endowment-premiumsPaid"></div>`;
+            } else if (prefix === 'jeevananand') {
+                 specificInputs = `<div class="input-group"><label>Total Maturity Value (SA + Bonus, ₹)</label><input type="number" id="jeevananand-maturityValueInput"></div>
+                                <hr><p style="font-size:12px; margin-bottom:15px;"><i>The fields below are for IRR, cashflow, and surrender calculations.</i></p>
+                                <div class="input-group"><label>Sum Assured (for Gap/Paid-up/Surrender calc, ₹)</label><input type="number" id="jeevananand-sumAssured"></div>
+                                <div class="input-group"><label>Annual Premium (₹)</label><input type="number" id="jeevananand-annualPremium"></div>
+                                <div class="input-group"><label>Total Policy Term (Years)</label><input type="number" id="jeevananand-totalYears"></div>
+                                <div class="input-group"><label>Premium Paying Term (Years)</label><input type="number" id="jeevananand-premiumPayingTerm"></div>
+                                <div class="input-group"><label>Premiums Already Paid (Years)</label><input type="number" id="jeevananand-premiumsPaid"></div>`;
+            } else if (prefix === 'pension') {
+                specificInputs = `<div class="input-group"><label>Corpus/Value at Vesting (at term end, ₹)</label><input type="number" id="pension-maturityValueInput"></div>
+                                <div class="input-group"><label>Vested Bonus (at Maturity, ₹)</label><input type="number" id="pension-vestedBonus"></div>
+                                <hr><p style="font-size:12px; margin-bottom:15px;"><i>The fields below are for IRR, cashflow, and surrender calculations.</i></p>
+                                <div class="input-group"><label>Sum Assured (for Gap/Paid-up/Surrender calc, ₹)</label><input type="number" id="pension-sumAssured"></div>
+                                <div class="input-group"><label>Annual Premium (₹)</label><input type="number" id="pension-annualPremium"></div>
+                                <div class="input-group"><label>Premium Paying Term (Years)</label><input type="number" id="pension-premiumYears"></div>
+                                <div class="input-group"><label>Premiums Already Paid (Years)</label><input type="number" id="pension-premiumsPaid"></div>
+                                <div class="input-group"><label>Annual Pension Payout (₹)</label><input type="number" id="pension-annualPayout"></div>
+                                <div class="input-group"><label>Pension Payout Term (Years)</label><input type="number" id="pension-payoutYears"></div>`;
+            } else if (prefix === 'moneyback') {
+                specificInputs = `<div class="input-group"><label>Final Payout at Maturity (at term end, ₹)</label><input type="number" id="moneyback-maturityValueInput"></div>
+                                <div class="input-group"><label>Vested Bonus (at Maturity, ₹)</label><input type="number" id="moneyback-vestedBonus"></div>
+                                <hr><p style="font-size:12px; margin-bottom:15px;"><i>The fields below are for IRR, cashflow, and surrender calculations.</i></p>
+                                <div class="input-group"><label>Sum Assured (for Gap/Paid-up/Surrender calc, ₹)</label><input type="number" id="moneyback-sumAssured"></div>
+                                <div class="input-group"><label>Annual Premium (₹)</label><input type="number" id="moneyback-annualPremium"></div>
+                                <div class="input-group"><label>Total Policy Term (Years)</label><input type="number" id="moneyback-totalYears"></div>
+                                <div class="input-group"><label>Premiums Already Paid (Years)</label><input type="number" id="moneyback-premiumsPaid"></div>
+                                <div class="section-title">Intermediate Survival Benefits</div><div id="moneyback-payouts-container"></div>
+                                <button class="btn" style="background: #e2e8f0; color: var(--text-dark); margin-top: 10px; padding: 10px;" onclick="policyAnalyzer.addPayoutRow()">+ Add Payout</button>`;
+            }
+            return `<div class="content"><div class="input-section"><div class="section-title">Policy Details</div>${commonInputs}${specificInputs}${commonValueCalcs}<button class="btn-analyzer" onclick="app.saveAndAnalyzePolicy()">Save & Analyze Policy</button></div><div class="results-container">${resultsHTML}</div></div>`;
+        },
+        addPayoutRow: (amount = '', year = '') => {
+            const container = document.getElementById('moneyback-payouts-container');
+            const row = document.createElement('div');
+            row.className = 'payout-row';
+            row.innerHTML = `<input type="number" placeholder="Payout Amount (₹)" value="${amount}"><input type="number" placeholder="Year of Payout" value="${year}"><button onclick="this.parentElement.remove()">X</button>`;
+            container.appendChild(row);
+        },
+        getAnalysisResults: (policy) => {
+            const f = (val) => parseFloat(val) || 0;
+            const i = (val) => parseInt(val) || 0;
+            let results = {};
+            let cashflows;
+
+            try {
+                if (policy.type === 'JeevanAnand') {
+                    const maturityValue = f(policy.maturityValueInput);
+                    const annualPremium = f(policy.annualPremium);
+                    const totalYears = i(policy.totalYears), premiumPayingTerm = i(policy.premiumPayingTerm);
+                    if (annualPremium <= 0 || totalYears <= 0 || premiumPayingTerm <= 0 || premiumPayingTerm > totalYears) return null;
+                    cashflows = new Array(totalYears).fill(0);
+                    for (let j = 0; j < premiumPayingTerm; j++) { cashflows[j] = -annualPremium; }
+                    if (totalYears > 0) { cashflows[totalYears - 1] += maturityValue; }
+                    results.policyDetails = { annualPremium, totalYears, payouts: [], maturityValue, premiumPayingTerm };
+                } else if (policy.type === 'Endowment') {
+                    const maturityValue = f(policy.maturityValueInput), vestedBonus = f(policy.vestedBonus);
+                    const annualPremium = f(policy.annualPremium), totalYears = i(policy.totalYears);
+                    if (annualPremium <= 0 || totalYears <= 0) return null;
+                    const totalFinalPayout = maturityValue + vestedBonus;
+                    cashflows = new Array(totalYears).fill(-annualPremium);
+                    if (totalYears > 0) { cashflows[totalYears - 1] += totalFinalPayout; }
+                    results.policyDetails = { annualPremium, totalYears, payouts: [], maturityValue: totalFinalPayout };
+                } else if (policy.type === 'MoneyBack') {
+                    const maturityValue = f(policy.maturityValueInput), vestedBonus = f(policy.vestedBonus);
+                    const annualPremium = f(policy.annualPremium), totalYears = i(policy.totalYears);
+                    if (annualPremium <= 0 || totalYears <= 0) return null;
+                    const payouts = (policy.payouts || []).map(p => ({ amount: f(p.amount), year: i(p.year) }));
+                    const totalFinalPayout = maturityValue + vestedBonus;
+                    cashflows = new Array(totalYears).fill(-annualPremium);
+                    payouts.forEach(p => { if (p.year > 0 && p.year <= totalYears) cashflows[p.year - 1] += p.amount; });
+                    if (totalYears > 0) { cashflows[totalYears - 1] += totalFinalPayout; }
+                    results.policyDetails = { annualPremium, totalYears, payouts, maturityValue: totalFinalPayout };
+                } else if (policy.type === 'Pension') {
+                    const maturityValue = f(policy.maturityValueInput), vestedBonus = f(policy.vestedBonus);
+                    const annualPremium = f(policy.annualPremium), premiumYears = i(policy.premiumYears);
+                    const annualPayout = f(policy.annualPayout), payoutYears = i(policy.payoutYears);
+                    if (annualPremium <= 0 || premiumYears <= 0) return null;
+                    const totalYears = premiumYears + payoutYears;
+                    const totalFinalPayout = maturityValue + vestedBonus;
+                    cashflows = new Array(totalYears).fill(0);
+                    for (let j = 0; j < premiumYears; j++) cashflows[j] = -annualPremium;
+                    for (let j = 0; j < payoutYears; j++) cashflows[premiumYears + j] = annualPayout;
+                    if (totalYears > 0) { cashflows[totalYears - 1] += totalFinalPayout; }
+                    results.policyDetails = { annualPremium, premiumYears, annualPayout, payoutYears, maturityValue: totalFinalPayout };
+                }
+                
+                results.cashflows = cashflows;
+                const accruedBonuses = f(policy.accruedBonuses), svFactor = f(policy.svFactor), premiumsPaid = i(policy.premiumsPaid);
+                const annualPremium = f(policy.annualPremium), sumAssured = f(policy.sumAssured);
+                const term = i(policy.totalYears) || i(policy.premiumPayingTerm) || i(policy.premiumYears) || 0;
+                
+                const context = { SA: sumAssured, AP: annualPremium, TY: term, PPT: term, PP: premiumsPaid };
+                results.paidUpValue = policyAnalyzer.calculatePaidUpValue(policy.paidUpMethod, policy.paidUpFormula, context);
+                Object.assign(context, { PUV: results.paidUpValue, AB: accruedBonuses, TPP: annualPremium * premiumsPaid, SVF: svFactor / 100 });
+                results.surrenderValue = policyAnalyzer.calculateSurrenderValue(policy.surrenderMethod, policy.surrenderFormula, context);
+                
+                results.irr = policyAnalyzer.calculateIRR(cashflows);
+                results.totalPremiumsPaid = cashflows.filter(c => c < 0).reduce((sum, c) => sum - c, 0);
+                results.totalPayout = cashflows.filter(c => c > 0).reduce((sum, c) => sum + c, 0);
+                results.netBenefit = results.totalPayout - results.totalPremiumsPaid;
+                results.premiumsAlreadyPaidValue = annualPremium * premiumsPaid;
+                results.remainingYears = term - premiumsPaid;
+                
+                return results;
+            } catch (e) {
+                console.error("Error calculating policy analysis:", e);
+                return null;
+            }
+        },
+        calculatePaidUpValue: (method, formula, context) => {
+            if (method === 'custom') return policyAnalyzer.evaluateFormula(formula, context);
+            const term = context.TY || context.PPT || 0;
+            return term > 0 ? (context.PP / term) * context.SA : 0;
+        },
+        calculateSurrenderValue: (method, formula, context) => {
+             if (method === 'custom') return policyAnalyzer.evaluateFormula(formula, context);
+            return (context.PUV + context.AB) * context.SVF;
+        },
+        processAndDisplayResults: (prefix, results) => {
+            const resultsContainer = document.querySelector(`#policy-detail-pane .results-section`);
+            if (!resultsContainer) return;
+            resultsContainer.style.display = 'block';
+
+            document.getElementById(`${prefix}-totalPremiumsPaid`).textContent = policyAnalyzer.formatCurrency(results.totalPremiumsPaid);
+            document.getElementById(`${prefix}-premiumsAlreadyPaid`).textContent = policyAnalyzer.formatCurrency(results.premiumsAlreadyPaidValue);
+            document.getElementById(`${prefix}-maturityDisplay`).textContent = policyAnalyzer.formatCurrency(results.totalPayout);
+            document.getElementById(`${prefix}-irrValue`).textContent = results.irr !== null ? results.irr.toFixed(2) + '%' : 'N/A';
+            document.getElementById(`${prefix}-paidUpValueDisplay`).textContent = policyAnalyzer.formatCurrency(results.paidUpValue);
+            document.getElementById(`${prefix}-surrenderValueDisplay`).textContent = policyAnalyzer.formatCurrency(results.surrenderValue);
+            document.getElementById(`${prefix}-policySuggestion`).innerHTML = policyAnalyzer.generatePolicySuggestion(results.irr, results.netBenefit, results.remainingYears).replace(/\n/g, '<br>');
+
+            const netBenefitElement = document.getElementById(`${prefix}-netBenefitDisplay`);
+            if (netBenefitElement) {
+                netBenefitElement.textContent = policyAnalyzer.formatCurrency(results.netBenefit);
+                netBenefitElement.className = 'result-value';
+                netBenefitElement.classList.add(results.netBenefit >= 0 ? 'positive' : 'negative');
+            }
+
+            policyAnalyzer.updateTable(prefix, results.cashflows, results.policyDetails);
+            policyAnalyzer.updateCharts(prefix, results.cashflows, results.totalPremiumsPaid, results.netBenefit);
+        },
+        getTableData: (cashflows, details) => {
+            const data = [];
+            let cumulativeCashflow = 0;
+            const isPension = !!details.premiumYears;
+            const headers = isPension 
+                ? ["Year", "Premium Outflow", "Pension Inflow", "Maturity Value", "Net Cashflow", "Cumulative Cashflow"]
+                : ["Year", "Premium Outflow", "Survival/Interim Benefit", "Maturity Value", "Net Cashflow", "Cumulative Cashflow"];
+            data.push(headers.map(h => ({v: h, s: { font: { bold: true }}})));
+
+            const totalYears = cashflows.length;
+            for (let i = 0; i < totalYears; i++) {
+                const year = i + 1;
+                const netCashflow = cashflows[i] || 0;
+                cumulativeCashflow += netCashflow;
+                
+                let excelRow = [
+                    year, 
+                    {t:'n', v:0, z:'₹#,##0'}, 
+                    {t:'n', v:0, z:'₹#,##0'}, 
+                    {t:'n', v:0, z:'₹#,##0'}, 
+                    {t:'n', v:netCashflow, z:'₹#,##0'}, 
+                    {t:'n', v:cumulativeCashflow, z:'₹#,##0'}
+                ];
+
+                if (isPension) {
+                    if (year <= details.premiumYears) excelRow[1].v = details.annualPremium;
+                    if (year > details.premiumYears) excelRow[2].v = details.annualPayout;
+                    if (year === totalYears) excelRow[3].v = details.maturityValue;
+                } else {
+                    const premiumTerm = details.premiumPayingTerm || details.totalYears;
+                    if(year <= premiumTerm) excelRow[1].v = details.annualPremium;
+                    const moneyBackPayout = (details.payouts || []).find(p => p.year == year);
+                    if (moneyBackPayout) excelRow[2].v = moneyBackPayout.amount;
+                    if (year === details.totalYears) excelRow[3].v = details.maturityValue;
+                }
+                data.push(excelRow);
+            }
+            return data;
+        },
+        updateTable: (prefix, cashflows, details) => {
+            const table = document.querySelector(`#${prefix}-yearlyDataTable`);
+            if(!table) return;
+            const data = policyAnalyzer.getTableData(cashflows, details);
+            const headers = data.shift(); // remove headers from data
+            let tableHTML = `<thead><tr>${headers.map(h => `<th>${h.v}</th>`).join('')}</tr></thead><tbody>`;
+
+            data.forEach(excelRow => {
+                 tableHTML += `<tr>
+                    <td>${excelRow[0]}</td>
+                    <td class="negative">${excelRow[1].v > 0 ? policyAnalyzer.formatCurrency(excelRow[1].v) : '-'}</td>
+                    <td class="positive">${excelRow[2].v > 0 ? policyAnalyzer.formatCurrency(excelRow[2].v) : '-'}</td>
+                    <td class="positive">${excelRow[3].v > 0 ? policyAnalyzer.formatCurrency(excelRow[3].v) : '-'}</td>
+                    <td class="${excelRow[4].v < 0 ? 'negative' : 'positive'}">${policyAnalyzer.formatCurrency(excelRow[4].v)}</td>
+                    <td class="${excelRow[5].v < 0 ? 'negative' : 'positive'}">${policyAnalyzer.formatCurrency(excelRow[5].v)}</td>
+                </tr>`;
+            });
+            table.innerHTML = tableHTML + '</tbody>';
+        },
+        updateCharts: (prefix, cashflows, totalPremiumsPaid, netGain) => {
+            if (policyAnalyzer.charts[prefix]) {
+                if(policyAnalyzer.charts[prefix].cashflow) policyAnalyzer.charts[prefix].cashflow.destroy();
+                if(policyAnalyzer.charts[prefix].breakdown) policyAnalyzer.charts[prefix].breakdown.destroy();
+            }
+            const cashflowCtx = document.getElementById(`${prefix}-cashflowChart`);
+            const breakdownCtx = document.getElementById(`${prefix}-breakdownChart`);
+            if (!cashflowCtx || !breakdownCtx) return;
+
+            let cumulative = 0;
+            const cumulativeData = cashflows.map(cf => cumulative += (cf || 0));
+            const netGainForChart = netGain > 0 ? netGain : 0;
+
+            policyAnalyzer.charts[prefix] = {
+                cashflow: new Chart(cashflowCtx, { 
+                    type: 'line', 
+                    data: { 
+                        labels: Array.from({ length: cashflows.length }, (_, i) => `Yr ${i + 1}`),
+                        datasets: [{ label: 'Cumulative Cashflow', data: cumulativeData, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.1)', fill: true }] 
+                    }, 
+                    options: { plugins: { title: { display: true, text: 'Policy Cashflows' } } } 
+                }),
+                breakdown: new Chart(breakdownCtx, { 
+                    type: 'doughnut', 
+                    data: { 
+                        labels: ['Total Premiums Paid', 'Net Gain'], 
+                        datasets: [{ data: [totalPremiumsPaid, netGainForChart], backgroundColor: ['#FF6384', '#36A2EB'] }] 
+                    }, 
+                    options: { plugins: { title: { display: true, text: 'Premiums vs. Gain' }, tooltip: { callbacks: { label: c => `${c.label}: ${policyAnalyzer.formatCurrency(c.parsed)}` }} } } 
+                })
+            };
+        },
+        calculateIRR: (cashflows) => {
+            if (!cashflows || cashflows.length === 0 || cashflows.every(cf => cf <= 0) || cashflows.every(cf => cf >= 0)) return null;
+            try {
+                let lower = -0.9999, upper = 10, tol = 1e-7, maxIter = 1000;
+                const npv = (rate) => cashflows.reduce((sum, cf, t) => sum + cf / Math.pow(1 + rate, t + 1), 0);
+                let mid, value, npvLower = npv(lower);
+                for (let i = 0; i < maxIter; i++) {
+                    mid = (lower + upper) / 2;
+                    if(mid === lower || mid === upper) break; 
+                    value = npv(mid);
+                    if (Math.abs(value) < tol) return mid * 100;
+                    if (npvLower * value < 0) { upper = mid; } else { lower = mid; npvLower = value; }
+                }
+                return mid * 100;
+            } catch (e) { return null; }
+        },
+        generatePolicySuggestion: (irr, netGain, remainingYears) => {
+            let s = "";
+            if (irr === null) {
+                s = "IRR could not be calculated. This may be due to no positive cashflows (payouts).";
+            } else {
+                const irrText = `An IRR of ${irr.toFixed(2)}% is considered `;
+                if (irr >= 6) s = `🟢 Strong. ${irrText} excellent.`;
+                else if (irr >= 4) s = `🟡 Moderate. ${irrText} acceptable.`;
+                else s = `🔴 Weak. ${irrText} low.`;
+            }
+            s += `\nOverall, you will ${netGain >= 0 ? 'gain' : 'lose'} ${policyAnalyzer.formatCurrency(Math.abs(netGain))} over the term.`
+            if (irr !== null && remainingYears >= 0) {
+                if (irr >= 6 && remainingYears <= 5) {
+                    s += `\n\n<b>Recommendation:</b> With a strong IRR and only ${remainingYears} years remaining, it is <b>highly recommended to continue this policy</b>.`;
+                } else if (irr < 4 && remainingYears > 10) {
+                    s += `\n\n<b>Recommendation:</b> Given the low IRR and a long tenure of ${remainingYears} years remaining, you may want to <b>consider surrendering this policy</b> and evaluating alternative investment options.`;
+                } else {
+                    s += `\n\n<b>Recommendation:</b> The policy performance is moderate. Continue monitoring it against your financial goals.`;
+                }
+            }
+            return s;
+        },
+        evaluateFormula: (formula, context) => {
+            try {
+                if (!formula.trim()) return 0;
+                return math.evaluate(formula, context);
+            } catch (e) {
+                alert(`Invalid Formula:\n${e.message}\nPlease check syntax and variable names.`);
+                return null;
+            }
+        },
+        formatCurrency: (amount) => '₹' + new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount),
+        toggleMethodInputs: (prefix, valueType) => {
+            const selectedMethod = document.getElementById(`${prefix}-${valueType}Method`).value;
+            ['custom', 'standard'].forEach(method => {
+                const container = document.getElementById(`${prefix}-${valueType}${method.charAt(0).toUpperCase() + method.slice(1)}Container`);
+                if (container) container.style.display = selectedMethod === method ? 'block' : 'none';
+            });
+        },
+        initDefaults: (prefix) => {
+            policyAnalyzer.toggleMethodInputs(prefix, 'paidUp');
+            policyAnalyzer.toggleMethodInputs(prefix, 'surrender');
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', app.init);
+</script>
+</body>
+</html>
